@@ -4,6 +4,7 @@ from subprocess import Popen, PIPE
 import os
 from tempfile import mkdtemp
 from werkzeug import secure_filename
+import uuid
 
 app = Flask(__name__)
 
@@ -138,12 +139,12 @@ def images_remove_all():
         iID = i['id']
         docker('rmi',iID)
         ids.append(iID)
-    resp = ''
+    resp = json.dumps(ids)
     return Response(response=resp, mimetype="application/json")
 
 
-@app.route('/containers', methods=['POST'])
-def containers_create():
+@app.route('/containers/<id>', methods=['POST'])
+def containers_create(id):
     """
     Create container (from existing image using id or name)
 
@@ -154,8 +155,9 @@ def containers_create():
     """
     body = request.get_json(force=True)
     image = body['image']
-    args = ('run', '-d')
-    id = docker(*(args + (image,)))[0:12]
+    portMap = body['publish']
+    args = ('run', '-d', '-p')
+    id = docker(*(args + (image,portMap)))[0:12]
     return Response(response='{"id": "%s"}' % id, mimetype="application/json")
 
 
@@ -168,8 +170,14 @@ def images_create():
 
     """
     dockerfile = request.files['file']
+    unique_folder = uuid.uuid4()
+    filename = secure_filename(dockerfile.filename)
+    path = os.path.join('/home/user/Lab8and9/unique_folder',filename)
+    dockerfile.save(path)
+    args = ('build','-rm')
+    docker(*(args + path))
     
-    resp = ''
+    resp = json.dumps(path)
     return Response(response=resp, mimetype="application/json")
 
 
